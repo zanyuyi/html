@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据看板导航平台</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- 引入Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    
+    <!-- Tailwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#6366F1',
+                        urgency: {
+                            high: '#EF4444',
+                            medium: '#F59E0B',
+                            low: '#10B981'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+            }
+            .text-highlight {
+                @apply bg-yellow-200 px-1 rounded;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-dashboard text-primary text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold text-gray-800">数据看板导航平台</h1>
+            </div>
+            
+            <!-- 搜索框 -->
+            <div class="relative w-full md:w-96">
+                <input 
+                    type="text" 
+                    id="search-input"
+                    placeholder="搜索看板名称、描述或标签..." 
+                    class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                >
+                <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            </div>
+            
+            <!-- 添加按钮 -->
+            <button 
+                id="add-dashboard-btn"
+                class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+            >
+                <i class="fa fa-plus"></i>
+                <span>添加看板</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6 flex flex-col md:flex-row gap-6">
+        <!-- 筛选侧边栏 -->
+        <aside class="w-full md:w-64 shrink-0">
+            <div class="bg-white rounded-xl shadow-sm p-4 sticky top-24">
+                <h2 class="text-lg font-semibold mb-4 pb-2 border-b">筛选条件</h2>
+                
+                <!-- 紧急度筛选 -->
+                <div class="mb-5">
+                    <h3 class="font-medium mb-2 text-gray-700">紧急度</h3>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" value="high" class="urgency-filter h-4 w-4 text-primary rounded" checked>
+                            <span class="flex items-center gap-1">
+                                <span class="w-3 h-3 rounded-full bg-urgency-high"></span>
+                                紧急
+                            </span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" value="medium" class="urgency-filter h-4 w-4 text-primary rounded" checked>
+                            <span class="flex items-center gap-1">
+                                <span class="w-3 h-3 rounded-full bg-urgency-medium"></span>
+                                中等
+                            </span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" value="low" class="urgency-filter h-4 w-4 text-primary rounded" checked>
+                            <span class="flex items-center gap-1">
+                                <span class="w-3 h-3 rounded-full bg-urgency-low"></span>
+                                一般
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- 课程筛选 -->
+                <div class="mb-5">
+                    <h3 class="font-medium mb-2 text-gray-700">课程</h3>
+                    <div class="space-y-2 max-h-32 overflow-y-auto scrollbar-hide" id="course-filters">
+                        <!-- 课程选项将通过JS动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 项目筛选 -->
+                <div class="mb-5">
+                    <h3 class="font-medium mb-2 text-gray-700">项目</h3>
+                    <div class="space-y-2 max-h-32 overflow-y-auto scrollbar-hide" id="project-filters">
+                        <!-- 项目选项将通过JS动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 标签筛选 -->
+                <div class="mb-5">
+                    <h3 class="font-medium mb-2 text-gray-700">标签</h3>
+                    <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto scrollbar-hide" id="tag-filters">
+                        <!-- 标签选项将通过JS动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 视图切换 -->
+                <div class="pt-3 border-t">
+                    <h3 class="font-medium mb-2 text-gray-700">视图</h3>
+                    <div class="flex gap-2">
+                        <button id="grid-view-btn" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-md">
+                            <i class="fa fa-th-large"></i>
+                        </button>
+                        <button id="list-view-btn" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-md">
+                            <i class="fa fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 重置筛选 -->
+                <button id="reset-filters" class="mt-4 w-full py-2 text-gray-600 hover:text-gray-800 transition-colors">
+                    <i class="fa fa-refresh mr-1"></i> 重置筛选
+                </button>
+            </div>
+        </aside>
+        
+        <!-- 看板列表 -->
+        <section class="flex-grow">
+            <!-- 筛选结果统计 -->
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-gray-600"><span id="dashboard-count">0</span> 个看板</p>
+                <div class="flex gap-2">
+                    <select id="sort-select" class="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                        <option value="name-asc">名称 (A-Z)</option>
+                        <option value="name-desc">名称 (Z-A)</option>
+                        <option value="created-desc">创建时间 (最新)</option>
+                        <option value="created-asc">创建时间 (最早)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 看板网格视图 -->
+            <div id="dashboard-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 看板卡片将通过JS动态生成 -->
+                <div class="col-span-full text-center py-12 text-gray-500">
+                    <i class="fa fa-search text-4xl mb-3 opacity-30"></i>
+                    <p>暂无看板数据，请点击"添加看板"按钮创建</p>
+                </div>
+            </div>
+            
+            <!-- 看板列表视图 (默认隐藏) -->
+            <div id="dashboard-list" class="hidden space-y-4">
+                <!-- 列表项将通过JS动态生成 -->
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t mt-8 py-4">
+        <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>数据看板导航平台 - 本地版</p>
+        </div>
+    </footer>
+
+    <!-- 添加/编辑看板模态框 -->
+    <div id="dashboard-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b">
+                <div class="flex justify-between items-center">
+                    <h2 id="modal-title" class="text-xl font-bold">添加新看板</h2>
+                    <button id="close-modal" class="text-gray-500 hover:text-gray-800">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="dashboard-form" class="p-6 space-y-4">
+                <input type="hidden" id="dashboard-id">
+                
+                <div>
+                    <label for="dashboard-name" class="block text-sm font-medium text-gray-700 mb-1">看板名称 <span class="text-red-500">*</span></label>
+                    <input type="text" id="dashboard-name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                
+                <div>
+                    <label for="dashboard-description" class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                    <textarea id="dashboard-description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"></textarea>
+                </div>
+                
+                <div>
+                    <label for="dashboard-url" class="block text-sm font-medium text-gray-700 mb-1">看板链接 <span class="text-red-500">*</span></label>
+                    <input type="url" id="dashboard-url" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary" placeholder="https://">
+                </div>
+                
+                <div>
+                    <label for="dashboard-urgency" class="block text-sm font-medium text-gray-700 mb-1">紧急度 <span class="text-red-500">*</span></label>
+                    <select id="dashboard-urgency" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <option value="high">紧急</option>
+                        <option value="medium">中等</option>
+                        <option value="low">一般</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="dashboard-course" class="block text-sm font-medium text-gray-700 mb-1">课程</label>
+                    <input type="text" id="dashboard-course" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                
+                <div>
+                    <label for="dashboard-project" class="block text-sm font-medium text-gray-700 mb-1">项目</label>
+                    <input type="text" id="dashboard-project" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">标签</label>
+                    <div class="flex gap-2 mb-2 flex-wrap" id="tag-container">
+                        <!-- 标签将通过JS动态生成 -->
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="tag-input" placeholder="输入标签，按回车添加" class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <button type="button" id="add-tag-btn" class="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg">
+                            <i class="fa fa-plus"></i>
+                        </button>
+                    </div>
+                    <input type="hidden" id="dashboard-tags" value="">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">预览图片</label>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="flex-grow">
+                            <input type="url" id="dashboard-preview-url" placeholder="图片URL" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" id="upload-image-btn" class="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg whitespace-nowrap">
+                                <i class="fa fa-upload mr-1"></i> 上传图片
+                            </button>
+                            <input type="file" id="image-upload" accept="image/*" class="hidden">
+                        </div>
+                    </div>
+                    <div class="mt-2 flex justify-center">
+                        <img id="preview-image" src="" alt="预览图" class="max-w-full max-h-40 object-contain border rounded-lg hidden">
+                    </div>
+                </div>
+                
+                <div class="pt-4 flex justify-end gap-3 border-t">
+                    <button type="button" id="cancel-btn" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 看板预览模态框 -->
+    <div id="preview-modal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="preview-title" class="font-bold text-lg"></h3>
+                <div class="flex gap-2">
+                    <a id="preview-link" href="" target="_blank" class="text-primary hover:underline flex items-center gap-1">
+                        <i class="fa fa-external-link"></i> 打开看板
+                    </a>
+                    <button id="close-preview" class="text-gray-500 hover:text-gray-800 p-1">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-medium text-gray-700 mb-2">预览图</h4>
+                        <div class="bg-gray-100 rounded-lg overflow-hidden">
+                            <img id="preview-modal-image" src="" alt="看板预览" class="w-full h-auto">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-medium text-gray-700 mb-2">看板信息</h4>
+                        <div class="space-y-3">
+                            <div>
+                                <p class="text-sm text-gray-500">描述</p>
+                                <p id="preview-description" class="text-gray-800"></p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">紧急度</p>
+                                <p id="preview-urgency" class="font-medium"></p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">课程</p>
+                                <p id="preview-course" class="text-gray-800"></p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">项目</p>
+                                <p id="preview-project" class="text-gray-800"></p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">标签</p>
+                                <div id="preview-tags" class="flex flex-wrap gap-1 mt-1"></div>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">创建时间</p>
+                                <p id="preview-created" class="text-gray-800 text-sm"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 flex gap-2">
+                            <button id="edit-from-preview" class="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg">
+                                <i class="fa fa-edit mr-1"></i> 编辑
+                            </button>
+                            <button id="delete-from-preview" class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-lg">
+                                <i class="fa fa-trash mr-1"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let dashboards = [];
+        let currentView = 'grid';
+        let selectedTags = [];
+        let currentDashboardId = null;
+        let currentTags = [];
+        
+        // DOM 元素
+        const dashboardGrid = document.getElementById('dashboard-grid');
+        const dashboardList = document.getElementById('dashboard-list');
+        const dashboardCount = document.getElementById('dashboard-count');
+        const searchInput = document.getElementById('search-input');
+        const addDashboardBtn = document.getElementById('add-dashboard-btn');
+        const dashboardModal = document.getElementById('dashboard-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const dashboardForm = document.getElementById('dashboard-form');
+        const modalTitle = document.getElementById('modal-title');
+        const dashboardIdInput = document.getElementById('dashboard-id');
+        const previewModal = document.getElementById('preview-modal');
+        const closePreviewBtn = document.getElementById('close-preview');
+        const gridViewBtn = document.getElementById('grid-view-btn');
+        const listViewBtn = document.getElementById('list-view-btn');
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        const sortSelect = document.getElementById('sort-select');
+        const tagInput = document.getElementById('tag-input');
+        const addTagBtn = document.getElementById('add-tag-btn');
+        const tagContainer = document.getElementById('tag-container');
+        const dashboardTagsInput = document.getElementById('dashboard-tags');
+        const uploadImageBtn = document.getElementById('upload-image-btn');
+        const imageUpload = document.getElementById('image-upload');
+        const previewImage = document.getElementById('preview-image');
+        const dashboardPreviewUrl = document.getElementById('dashboard-preview-url');
+        const editFromPreviewBtn = document.getElementById('edit-from-preview');
+        const deleteFromPreviewBtn = document.getElementById('delete-from-preview');
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboards();
+            setupEventListeners();
+            renderDashboards();
+        });
+        
+        // 从本地存储加载数据
+        function loadDashboards() {
+            const saved = localStorage.getItem('dashboards');
+            dashboards = saved ? JSON.parse(saved) : [];
+        }
+        
+        // 保存数据到本地存储
+        function saveDashboards() {
+            localStorage.setItem('dashboards', JSON.stringify(dashboards));
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 添加看板按钮
+            addDashboardBtn.addEventListener('click', openAddModal);
+            
+            // 关闭模态框
+            closeModalBtn.addEventListener('click', closeModal);
+            cancelBtn.addEventListener('click', closeModal);
+            
+            // 表单提交
+            dashboardForm.addEventListener('submit', handleFormSubmit);
+            
+            // 预览模态框关闭
+            closePreviewBtn.addEventListener('click', closePreviewModal);
+            
+            // 视图切换
+            gridViewBtn.addEventListener('click', () => setView('grid'));
+            listViewBtn.addEventListener('click', () => setView('list'));
+            
+            // 搜索
+            searchInput.addEventListener('input', debounce(renderDashboards, 300));
+            
+            // 筛选条件变化
+            document.querySelectorAll('.urgency-filter').forEach(checkbox => {
+                checkbox.addEventListener('change', renderDashboards);
+            });
+            
+            // 重置筛选
+            resetFiltersBtn.addEventListener('click', resetFilters);
+            
+            // 排序变化
+            sortSelect.addEventListener('change', renderDashboards);
+            
+            // 标签添加
+            addTagBtn.addEventListener('click', addTag);
+            tagInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTag();
+                }
+            });
+            
+            // 图片上传
+            uploadImageBtn.addEventListener('click', () => imageUpload.click());
+            imageUpload.addEventListener('change', handleImageUpload);
+            dashboardPreviewUrl.addEventListener('input', updatePreviewImage);
+            
+            // 从预览模态框编辑或删除
+            editFromPreviewBtn.addEventListener('click', () => {
+                closePreviewModal();
+                if (currentDashboardId) {
+                    openEditModal(currentDashboardId);
+                }
+            });
+            
+            deleteFromPreviewBtn.addEventListener('click', () => {
+                if (currentDashboardId && confirm('确定要删除这个看板吗？')) {
+                    deleteDashboard(currentDashboardId);
+                    closePreviewModal();
+                }
+            });
+        }
+        
+        // 防抖函数
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+        
+        // 设置视图模式
+        function setView(view) {
+            currentView = view;
+            if (view === 'grid') {
+                dashboardGrid.classList.remove('hidden');
+                dashboardList.classList.add('hidden');
+                gridViewBtn.classList.add('bg-primary/10', 'text-primary');
+                listViewBtn.classList.remove('bg-primary/10', 'text-primary');
+            } else {
+                dashboardGrid.classList.add('hidden');
+                dashboardList.classList.remove('hidden');
+                gridViewBtn.classList.remove('bg-primary/10', 'text-primary');
+                listViewBtn.classList.add('bg-primary/10', 'text-primary');
+            }
+            renderDashboards();
+        }
+        
+        // 打开添加模态框
+        function openAddModal() {
+            modalTitle.textContent = '添加新看板';
+            dashboardForm.reset();
+            dashboardIdInput.value = '';
+            currentTags = [];
+            updateTagContainer();
+            previewImage.src = '';
+            previewImage.classList.add('hidden');
+            dashboardModal.classList.remove('hidden');
+            document.getElementById('dashboard-name').focus();
+        }
+        
+        // 打开编辑模态框
+        function openEditModal(id) {
+            const dashboard = dashboards.find(d => d.id === id);
+            if (!dashboard) return;
+            
+            modalTitle.textContent = '编辑看板';
+            dashboardIdInput.value = dashboard.id;
+            document.getElementById('dashboard-name').value = dashboard.name;
+            document.getElementById('dashboard-description').value = dashboard.description || '';
+            document.getElementById('dashboard-url').value = dashboard.url;
+            document.getElementById('dashboard-urgency').value = dashboard.urgency;
+            document.getElementById('dashboard-course').value = dashboard.course || '';
+            document.getElementById('dashboard-project').value = dashboard.project || '';
+            document.getElementById('dashboard-preview-url').value = dashboard.previewImage || '';
+            
+            currentTags = [...dashboard.tags];
+            updateTagContainer();
+            updatePreviewImage();
+            
+            dashboardModal.classList.remove('hidden');
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            dashboardModal.classList.add('hidden');
+        }
+        
+        // 关闭预览模态框
+        function closePreviewModal() {
+            previewModal.classList.add('hidden');
+            currentDashboardId = null;
+        }
+        
+        // 处理表单提交
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const id = dashboardIdInput.value || generateId();
+            const name = document.getElementById('dashboard-name').value;
+            const description = document.getElementById('dashboard-description').value;
+            const url = document.getElementById('dashboard-url').value;
+            const urgency = document.getElementById('dashboard-urgency').value;
+            const course = document.getElementById('dashboard-course').value;
+            const project = document.getElementById('dashboard-project').value;
+            const previewImage = document.getElementById('dashboard-preview-url').value;
+            
+            const dashboardData = {
+                id,
+                name,
+                description,
+                url,
+                urgency,
+                course,
+                project,
+                tags: currentTags,
+                previewImage,
+                createdAt: dashboardIdInput.value ? dashboards.find(d => d.id === id).createdAt : new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            if (dashboardIdInput.value) {
+                // 更新现有看板
+                const index = dashboards.findIndex(d => d.id === id);
+                if (index !== -1) {
+                    dashboards[index] = dashboardData;
+                }
+            } else {
+                // 添加新看板
+                dashboards.push(dashboardData);
+            }
+            
+            saveDashboards();
+            closeModal();
+            renderDashboards();
+        }
+        
+        // 生成唯一ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+        
+        // 渲染看板列表
+        function renderDashboards() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const selectedUrgency = Array.from(document.querySelectorAll('.urgency-filter:checked')).map(cb => cb.value);
+            const selectedCourses = Array.from(document.querySelectorAll('.course-filter:checked')).map(cb => cb.value);
+            const selectedProjects = Array.from(document.querySelectorAll('.project-filter:checked')).map(cb => cb.value);
+            
+            // 筛选看板
+            let filtered = dashboards.filter(dashboard => {
+                // 搜索词筛选
+                const matchesSearch = searchTerm === '' || 
+                    dashboard.name.toLowerCase().includes(searchTerm) ||
+                    (dashboard.description && dashboard.description.toLowerCase().includes(searchTerm)) ||
+                    dashboard.tags.some(tag => tag.toLowerCase().includes(searchTerm));
+                
+                // 紧急度筛选
+                const matchesUrgency = selectedUrgency.includes(dashboard.urgency);
+                
+                // 课程筛选
+                const matchesCourse = selectedCourses.length === 0 || 
+                    (dashboard.course && selectedCourses.includes(dashboard.course));
+                
+                // 项目筛选
+                const matchesProject = selectedProjects.length === 0 || 
+                    (dashboard.project && selectedProjects.includes(dashboard.project));
+                
+                // 标签筛选
+                const matchesTags = selectedTags.length === 0 || 
+                    selectedTags.every(tag => dashboard.tags.includes(tag));
+                
+                return matchesSearch && matchesUrgency && matchesCourse && matchesProject && matchesTags;
+            });
+            
+            // 排序
+            filtered = sortDashboards(filtered);
+            
+            // 更新计数
+            dashboardCount.textContent = filtered.length;
+            
+            // 清空容器
+            dashboardGrid.innerHTML = '';
+            dashboardList.innerHTML = '';
+            
+            // 生成筛选选项
+            generateFilterOptions();
+            
+            // 没有结果
+            if (filtered.length === 0) {
+                dashboardGrid.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-gray-500">
+                        <i class="fa fa-search text-4xl mb-3 opacity-30"></i>
+                        <p>没有找到匹配的看板</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 渲染网格视图
+            filtered.forEach(dashboard => {
+                // 网格视图卡片
+                const card = createDashboardCard(dashboard);
+                dashboardGrid.appendChild(card);
+                
+                // 列表视图项
+                const listItem = createDashboardListItem(dashboard);
+                dashboardList.appendChild(listItem);
+            });
+        }
+        
+        // 生成筛选选项
+        function generateFilterOptions() {
+            // 提取所有唯一的课程、项目和标签
+            const allCourses = [...new Set(dashboards.map(d => d.course).filter(Boolean))];
+            const allProjects = [...new Set(dashboards.map(d => d.project).filter(Boolean))];
+            const allTags = [...new Set(dashboards.flatMap(d => d.tags))];
+            
+            // 生成课程筛选
+            const courseFilters = document.getElementById('course-filters');
+            courseFilters.innerHTML = allCourses.map(course => `
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" value="${escapeHtml(course)}" class="course-filter h-4 w-4 text-primary rounded" checked>
+                    <span>${escapeHtml(course)}</span>
+                </label>
+            `).join('');
+            
+            // 添加课程筛选事件
+            document.querySelectorAll('.course-filter').forEach(checkbox => {
+                checkbox.addEventListener('change', renderDashboards);
+            });
+            
+            // 生成项目筛选
+            const projectFilters = document.getElementById('project-filters');
+            projectFilters.innerHTML = allProjects.map(project => `
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" value="${escapeHtml(project)}" class="project-filter h-4 w-4 text-primary rounded" checked>
+                    <span>${escapeHtml(project)}</span>
+                </label>
+            `).join('');
+            
+            // 添加项目筛选事件
+            document.querySelectorAll('.project-filter').forEach(checkbox => {
+                checkbox.addEventListener('change', renderDashboards);
+            });
+            
+            // 生成标签筛选
+            const tagFilters = document.getElementById('tag-filters');
+            tagFilters.innerHTML = allTags.map(tag => `
+                <span class="tag-filter inline-block px-2 py-1 rounded-full text-sm cursor-pointer ${selectedTags.includes(tag) ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}" 
+                      data-tag="${escapeHtml(tag)}">
+                    ${escapeHtml(tag)}
+                </span>
+            `).join('');
+            
+            // 添加标签筛选事件
+            document.querySelectorAll('.tag-filter').forEach(tag => {
+                tag.addEventListener('click', () => {
+                    const tagText = tag.getAttribute('data-tag');
+                    if (selectedTags.includes(tagText)) {
+                        selectedTags = selectedTags.filter(t => t !== tagText);
+                    } else {
+                        selectedTags.push(tagText);
+                    }
+                    renderDashboards();
+                });
+            });
+        }
+        
+        // 排序看板
+        function sortDashboards(dashboards) {
+            const sortType = sortSelect.value;
+            
+            return [...dashboards].sort((a, b) => {
+                switch (sortType) {
+                    case 'name-asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name-desc':
+                        return b.name.localeCompare(a.name);
+                    case 'created-desc':
+                        return new Date(b.createdAt) - new Date(a.createdAt);
+                    case 'created-asc':
+                        return new Date(a.createdAt) - new Date(b.createdAt);
+                    default:
+                        return 0;
+                }
+            });
+        }
+        
+        // 创建看板卡片
+        function createDashboardCard(dashboard) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-sm overflow-hidden card-hover';
+            card.innerHTML = `
+                <div class="relative h-48 bg-gray-100">
+                    <img src="${dashboard.previewImage || 'https://via.placeholder.com/400x300?text=No+Preview'}" 
+                         alt="${escapeHtml(dashboard.name)}" 
+                         class="w-full h-full object-cover">
+                    <span class="absolute top-2 left-2 px-2 py-1 rounded text-xs font-medium text-white 
+                                 ${dashboard.urgency === 'high' ? 'bg-urgency-high' : 
+                                   dashboard.urgency === 'medium' ? 'bg-urgency-medium' : 'bg-urgency-low'}">
+                        ${dashboard.urgency === 'high' ? '紧急' : 
+                          dashboard.urgency === 'medium' ? '中等' : '一般'}
+                    </span>
+                    <div class="absolute top-2 right-2 flex gap-1">
+                        <button class="edit-btn p-1.5 bg-white/80 hover:bg-white rounded-full text-gray-700" data-id="${dashboard.id}">
+                            <i class="fa fa-edit text-sm"></i>
+                        </button>
+                        <button class="delete-btn p-1.5 bg-white/80 hover:bg-white rounded-full text-gray-700" data-id="${dashboard.id}">
+                            <i class="fa fa-trash text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <h3 class="font-bold text-lg mb-1 truncate">${highlightText(escapeHtml(dashboard.name), searchInput.value)}</h3>
+                    <p class="text-gray-600 text-sm mb-3 line-clamp-2">${dashboard.description ? highlightText(escapeHtml(dashboard.description), searchInput.value) : '无描述'}</p>
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        ${dashboard.tags.map(tag => `
+                            <span class="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full">${highlightText(escapeHtml(tag), searchInput.value)}</span>
+                        `).join('')}
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-gray-500">
+                        <span>${dashboard.course ? escapeHtml(dashboard.course) : ''}</span>
+                        <span>${dashboard.project ? escapeHtml(dashboard.project) : ''}</span>
+                    </div>
+                </div>
+            `;
+            
+            // 添加点击事件查看预览
+            card.addEventListener('click', (e) => {
+                // 如果点击的是编辑或删除按钮，则不触发预览
+                if (!e.target.closest('.edit-btn') && !e.target.closest('.delete-btn')) {
+                    openPreview(dashboard.id);
+                }
+            });
+            
+            // 编辑按钮事件
+            card.querySelector('.edit-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                openEditModal(dashboard.id);
+            });
+            
+            // 删除按钮事件
+            card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm('确定要删除这个看板吗？')) {
+                    deleteDashboard(dashboard.id);
+                }
+            });
+            
+            return card;
+        }
+        
+        // 创建看板列表项
+        function createDashboardListItem(dashboard) {
+            const item = document.createElement('div');
+            item.className = 'bg-white rounded-xl shadow-sm overflow-hidden card-hover';
+            item.innerHTML = `
+                <div class="p-4 flex gap-4">
+                    <div class="w-24 h-24 shrink-0 bg-gray-100 rounded-lg overflow-hidden relative">
+                        <img src="${dashboard.previewImage || 'https://via.placeholder.com/200x200?text=No+Preview'}" 
+                             alt="${escapeHtml(dashboard.name)}" 
+                             class="w-full h-full object-cover">
+                        <span class="absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-medium text-white 
+                                     ${dashboard.urgency === 'high' ? 'bg-urgency-high' : 
+                                       dashboard.urgency === 'medium' ? 'bg-urgency-medium' : 'bg-urgency-low'}">
+                            ${dashboard.urgency === 'high' ? '紧急' : 
+                              dashboard.urgency === 'medium' ? '中等' : '一般'}
+                        </span>
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="font-bold truncate">${highlightText(escapeHtml(dashboard.name), searchInput.value)}</h3>
+                            <div class="flex gap-1">
+                                <button class="edit-btn p-1 text-gray-500 hover:text-gray-700" data-id="${dashboard.id}">
+                                    <i class="fa fa-edit"></i>
+                                </button>
+                                <button class="delete-btn p-1 text-gray-500 hover:text-gray-700" data-id="${dashboard.id}">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-2 line-clamp-1">${dashboard.description ? highlightText(escapeHtml(dashboard.description), searchInput.value) : '无描述'}</p>
+                        <div class="flex flex-wrap gap-1 mb-2">
+                            ${dashboard.tags.map(tag => `
+                                <span class="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full">${highlightText(escapeHtml(tag), searchInput.value)}</span>
+                            `).join('')}
+                        </div>
+                        <div class="flex flex-wrap gap-4 text-xs text-gray-500">
+                            ${dashboard.course ? `<span><i class="fa fa-book mr-1"></i>${escapeHtml(dashboard.course)}</span>` : ''}
+                            ${dashboard.project ? `<span><i class="fa fa-folder mr-1"></i>${escapeHtml(dashboard.project)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 添加点击事件查看预览
+            item.addEventListener('click', (e) => {
+                // 如果点击的是编辑或删除按钮，则不触发预览
+                if (!e.target.closest('.edit-btn') && !e.target.closest('.delete-btn')) {
+                    openPreview(dashboard.id);
+                }
+            });
+            
+            // 编辑按钮事件
+            item.querySelector('.edit-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                openEditModal(dashboard.id);
+            });
+            
+            // 删除按钮事件
+            item.querySelector('.delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm('确定要删除这个看板吗？')) {
+                    deleteDashboard(dashboard.id);
+                }
+            });
+            
+            return item;
+        }
+        
+        // 打开看板预览
+        function openPreview(id) {
+            const dashboard = dashboards.find(d => d.id === id);
+            if (!dashboard) return;
+            
+            currentDashboardId = id;
+            
+            document.getElementById('preview-title').textContent = dashboard.name;
+            document.getElementById('preview-link').href = dashboard.url;
+            document.getElementById('preview-modal-image').src = dashboard.previewImage || 'https://via.placeholder.com/800x600?text=No+Preview';
+            document.getElementById('preview-description').textContent = dashboard.description || '无描述';
+            
+            // 紧急度显示
+            const urgencyEl = document.getElementById('preview-urgency');
+            urgencyEl.textContent = dashboard.urgency === 'high' ? '紧急' : 
+                                   dashboard.urgency === 'medium' ? '中等' : '一般';
+            urgencyEl.className = `font-medium ${dashboard.urgency === 'high' ? 'text-urgency-high' : 
+                                              dashboard.urgency === 'medium' ? 'text-urgency-medium' : 'text-urgency-low'}`;
+            
+            document.getElementById('preview-course').textContent = dashboard.course || '无';
+            document.getElementById('preview-project').textContent = dashboard.project || '无';
+            
+            // 标签显示
+            const tagsEl = document.getElementById('preview-tags');
+            tagsEl.innerHTML = dashboard.tags.map(tag => `
+                <span class="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full">${escapeHtml(tag)}</span>
+            `).join('');
+            
+            // 格式化创建时间
+            const date = new Date(dashboard.createdAt);
+            document.getElementById('preview-created').textContent = date.toLocaleString();
+            
+            previewModal.classList.remove('hidden');
+        }
+        
+        // 删除看板
+        function deleteDashboard(id) {
+            dashboards = dashboards.filter(d => d.id !== id);
+            saveDashboards();
+            renderDashboards();
+        }
+        
+        // 重置筛选条件
+        function resetFilters() {
+            // 重置紧急度筛选
+            document.querySelectorAll('.urgency-filter').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            
+            // 重置课程筛选
+            document.querySelectorAll('.course-filter').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            
+            // 重置项目筛选
+            document.querySelectorAll('.project-filter').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            
+            // 重置标签筛选
+            selectedTags = [];
+            
+            // 重置搜索
+            searchInput.value = '';
+            
+            // 重置排序
+            sortSelect.value = 'name-asc';
+            
+            renderDashboards();
+        }
+        
+        // 添加标签
+        function addTag() {
+            const tagText = tagInput.value.trim();
+            if (tagText && !currentTags.includes(tagText)) {
+                currentTags.push(tagText);
+                tagInput.value = '';
+                updateTagContainer();
+            }
+            tagInput.focus();
+        }
+        
+        // 更新标签容器
+        function updateTagContainer() {
+            tagContainer.innerHTML = currentTags.map((tag, index) => `
+                <span class="bg-gray-100 text-gray-700 text-sm px-2 py-1 rounded-full flex items-center gap-1">
+                    ${escapeHtml(tag)}
+                    <button type="button" class="text-gray-500 hover:text-gray-700" onclick="removeTag(${index})">
+                        <i class="fa fa-times-circle"></i>
+                    </button>
+                </span>
+            `).join('');
+            
+            // 更新隐藏输入框的值
+            dashboardTagsInput.value = currentTags.join(',');
+        }
+        
+        // 移除标签 (暴露到全局供内联事件使用)
+        window.removeTag = function(index) {
+            currentTags.splice(index, 1);
+            updateTagContainer();
+        }
+        
+        // 处理图片上传
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    dashboardPreviewUrl.value = event.target.result;
+                    updatePreviewImage();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        // 更新预览图片
+        function updatePreviewImage() {
+            const url = dashboardPreviewUrl.value;
+            if (url) {
+                previewImage.src = url;
+                previewImage.classList.remove('hidden');
+            } else {
+                previewImage.src = '';
+                previewImage.classList.add('hidden');
+            }
+        }
+        
+        // 转义HTML防止XSS
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        
+        // 高亮搜索文本
+        function highlightText(text, searchTerm) {
+            if (!searchTerm) return text;
+            const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+            return text.replace(regex, '<span class="text-highlight">$1</span>');
+        }
+        
+        // 转义正则表达式特殊字符
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+    </script>
+</body>
+</html>
